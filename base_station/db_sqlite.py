@@ -1,7 +1,7 @@
 import sqlite3, pathlib, time
 
 # Ensures the database is always created/used at a consistent known location on the base station.
-DB_PATH = pathlib.Path(file).with_name("readings.sqlite").as_posix()
+DB_PATH = pathlib.Path(__file__).with_name("readings.sqlite").as_posix()
 
 # Creates a table for all received LoRa sensor readings and an index to optimize queries.
 DDL = """
