@@ -1,17 +1,31 @@
-import socket
+# base_station/main.py
+import socket, json, traceback
 from common.payloads import SensorPacket
+from base_station.db_sqlite import init_db, insert_reading
 
-HOST = "127.0.0.1"
+HOST = "127.0.0.1"   # local for now; later bind to 0.0.0.0 on Jetson
 PORT = 5005
+ACK_PORT = 5006      # we'll reply to the sender's source port, but define anyway
 
 def main():
+    print(f"[BASE] starting on {HOST}:{PORT}")
+    init_db()
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((HOST, PORT))
-    print(f"[BASE] Listening on {HOST}:{PORT}...")
+
     while True:
-        data, addr = sock.recvfrom(4096)
-        pkt = SensorPacket.from_json(data.decode())
-        print(f"[BASE] Received from {pkt.node_id}: {pkt.data} at {pkt.timestamp}")
+        buf, addr = sock.recvfrom(8192)
+        try:
+            pkt = SensorPacket.from_bytes(buf)
+            insert_reading(pkt.node_id, pkt.timestamp, pkt.seq, json.dumps(pkt.data))
+            print(f"[BASE] #{pkt.seq} from {pkt.node_id}  data={pkt.data}")
+            # send ACK: {"ack": seq, "node": node_id}
+            ack = json.dumps({"ack": pkt.seq, "node": pkt.node_id}).encode("utf-8")
+            sock.sendto(ack, addr)
+        except Exception as e:
+            print(f"[BASE] drop from {addr}: {e}")
+            traceback.print_exc()
 
 if __name__ == "__main__":
     main()
